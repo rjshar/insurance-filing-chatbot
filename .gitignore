@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Virtual environment
+venv311/
+
+# Environment variables
+.env
+
+# Streamlit and Chroma
+chroma_store/
+.streamlit/
+
+# OS junk
+.DS_Store
