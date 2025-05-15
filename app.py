@@ -30,6 +30,17 @@ def load_vectorstore():
             with fitz.open(path) as doc:
                 full_text = "".join(page.get_text() for page in doc)
                 chunks = splitter.create_documents([full_text], metadatas=[{"source": filename}])
+                
+                # Filter out junk like Table of Contents or empty text
+                filtered_chunks = [
+                    c for c in chunks
+                    if len(c.page_content.strip()) > 100
+                    and "table of contents" not in c.page_content.lower()
+                    and "index" not in c.page_content.lower()
+                    and not c.page_content.strip().isdigit()
+                ]
+
+                
                 docs.extend(chunks[:50])  # Limit to first 50 chunks
 
     embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")  # Stable model
@@ -75,7 +86,7 @@ Answer in plain English, as if you were explaining it to an underwriter:"""
             st.markdown(f"> {doc.page_content[:500]}...")
             st.markdown("---")
             
-        result = qa_chain.run(question)  # If using RetrievalQAWithSourcesChain, this may still be `result = qa_chain(question)`
+        result = qa_chain(question)  # If using RetrievalQAWithSourcesChain, this may still be `result = qa_chain(question)`
 
         st.subheader("🧠 Answer")
         st.write(result["answer"])
