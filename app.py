@@ -19,7 +19,7 @@ st.title("📄 Insurance Filing Chatbot (Demo Mode)")
 @st.cache_resource
 def load_vectorstore():
     docs = []
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1500, chunk_overlap=300)
 
     file_count = 0
 
@@ -40,12 +40,15 @@ question = st.text_input("Ask a question:", placeholder="e.g. What is the expens
 if question:
     with st.spinner("Thinking..."):
         vectordb = load_vectorstore()
-        retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 6})
+        retriever = vectordb.as_retriever(
+            search_type="similarity",
+            search_kwargs={"k": 6}
+        )
 
         custom_prompt = PromptTemplate.from_template(
-            """You are a helpful assistant trained to answer questions about insurance regulatory filings.
-Use ONLY the provided context to answer the question.
-If you don't know, say "I don’t know based on the filings provided."
+            """You are an expert on U.S. workers' compensation insurance filings.
+Answer the question using only the provided context from official filings. Think about comparisons between the company manuals you have in your database.
+If the answer is not explicitly stated in the context, say: "I don’t know based on the filings provided."
 
 Context:
 {summaries}
@@ -53,8 +56,8 @@ Context:
 Question:
 {question}
 
-Answer in plain English:"""
-        )
+Answer in plain English, as if you were explaining it to an underwriter:"""
+)
 
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 
@@ -63,8 +66,16 @@ Answer in plain English:"""
             retriever=retriever,
             chain_type_kwargs={"prompt": custom_prompt},
         )
+    # Preview what context is being retrieved
+        docs = retriever.get_relevant_documents(question)
 
-        result = qa_chain(question)
+        st.subheader("🔍 Retrieved Snippets")
+        for i, doc in enumerate(docs):
+            st.markdown(f"**Snippet {i+1}** — *{doc.metadata.get('source', 'unknown')}*")
+            st.markdown(f"> {doc.page_content[:500]}...")
+            st.markdown("---")
+            
+        result = qa_chain.run(question)  # If using RetrievalQAWithSourcesChain, this may still be `result = qa_chain(question)`
 
         st.subheader("🧠 Answer")
         st.write(result["answer"])
