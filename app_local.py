@@ -1,42 +1,27 @@
-# app.py — Streamlit Cloud version (no Chroma, in-memory FAISS)
-
 import os
 import streamlit as st
 from dotenv import load_dotenv
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
-from langchain.vectorstores import FAISS
+from langchain_chroma import Chroma
 from langchain.chains import RetrievalQAWithSourcesChain
 from langchain.prompts import PromptTemplate
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-import fitz  # PyMuPDF
 
 load_dotenv()
+CHROMA_DIR = "chroma_store"
 
-st.set_page_config(page_title="Insurance Filing Chatbot", layout="wide")
-st.title("📄 Insurance Filing Chatbot (Demo Mode)")
+st.set_page_config(page_title="Insurance Filing Q&A", layout="wide")
+st.title("📄 Insurance Filing Chatbot")
 
-@st.cache_resource
-def load_vectorstore():
-    docs = []
-    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-
-    for filename in os.listdir("pdfs"):
-        if filename.endswith(".pdf"):
-            path = os.path.join("pdfs", filename)
-            with fitz.open(path) as doc:
-                full_text = "".join(page.get_text() for page in doc)
-                chunks = splitter.create_documents([full_text], metadatas=[{"source": filename}])
-                docs.extend(chunks)
-
-    embeddings = OpenAIEmbeddings()
-    return FAISS.from_documents(docs, embeddings)
-
-question = st.text_input("Ask a question:", placeholder="e.g. What is the expense constant for Citizens?")
+question = st.text_input("Ask a question about the filings:", placeholder="e.g. What is the expense constant for Travelers?")
 
 if question:
     with st.spinner("Thinking..."):
-        vectordb = load_vectorstore()
+        vectordb = Chroma(
+            collection_name="insurance_chunks",
+            embedding_function=OpenAIEmbeddings(),
+            persist_directory=CHROMA_DIR
+        )
+
         retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 6})
 
         custom_prompt = PromptTemplate.from_template(
@@ -54,7 +39,6 @@ Answer in plain English:"""
         )
 
         llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
-
         qa_chain = RetrievalQAWithSourcesChain.from_chain_type(
             llm=llm,
             retriever=retriever,
