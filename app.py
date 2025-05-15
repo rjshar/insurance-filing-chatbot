@@ -21,15 +21,18 @@ def load_vectorstore():
     docs = []
     splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
 
+    file_count = 0
+
     for filename in os.listdir("pdfs"):
-        if filename.endswith(".pdf"):
+        if filename.endswith(".pdf") and file_count < 1:  # Limit to 1 file
+            file_count += 1
             path = os.path.join("pdfs", filename)
             with fitz.open(path) as doc:
                 full_text = "".join(page.get_text() for page in doc)
                 chunks = splitter.create_documents([full_text], metadatas=[{"source": filename}])
-                docs.extend(chunks)
+                docs.extend(chunks[:50])  # Limit to first 50 chunks
 
-    embeddings = OpenAIEmbeddings()
+    embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")  # Stable model
     return FAISS.from_documents(docs, embeddings)
 
 question = st.text_input("Ask a question:", placeholder="e.g. What is the expense constant for Citizens?")
